@@ -27,6 +27,8 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.4.0",
     "multer-storage-cloudinary": "^4.0.0",
+    "pg": "^8.23.1",
+    "pg-hstore": "^2.3.4",
     "qrcode": "^1.5.4",
     "sequelize": "^6.37.8",
     "socket.io": "^4.8.4",

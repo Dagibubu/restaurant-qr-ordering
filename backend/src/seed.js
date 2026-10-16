@@ -63,11 +63,12 @@ async function seed() {
 
     /* ── Clean slate ── */
     console.log('🗑️  Clearing existing data…');
-    await Order.destroy({ where: {}, truncate: true });
-    await MenuItem.destroy({ where: {}, truncate: true });
-    await Category.destroy({ where: {}, truncate: true });
-    await Table.destroy({ where: {}, truncate: true });
-    await User.destroy({ where: {}, truncate: true });
+    const wipe = { where: {}, truncate: true, cascade: true };
+    await Order.destroy(wipe);
+    await MenuItem.destroy(wipe);
+    await Category.destroy(wipe);
+    await Table.destroy(wipe);
+    await User.destroy(wipe);
 
     /* ── Users ── */
     console.log('\n👤 Creating users…');

@@ -4,34 +4,40 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const define = {
+  underscored: false,
+  freezeTableName: true,
+};
+
+// Production: Postgres via DATABASE_URL. Local dev: SQLite file.
+export const isPostgres = Boolean(process.env.DATABASE_URL);
+
 const storagePath = process.env.DB_STORAGE
   ? path.resolve(process.cwd(), process.env.DB_STORAGE)
   : path.resolve(__dirname, '../../data/restaurant.sqlite');
 
-export const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: storagePath,
-  logging: false,
-  define: {
-    // Use snake_case in DB (cleaner for SQL)
-    underscored: false,
-    freezeTableName: true,
-  },
-  // Required for SQLite + foreign keys
-  dialectOptions: {
-    // Ensures foreign key constraints are checked
-    foreignKeys: true,
-  },
-});
+export const sequelize = isPostgres
+  ? new Sequelize(process.env.DATABASE_URL, {
+      dialect: 'postgres',
+      logging: false,
+      define,
+      dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
+    })
+  : new Sequelize({
+      dialect: 'sqlite',
+      storage: storagePath,
+      logging: false,
+      define,
+      dialectOptions: { foreignKeys: true },
+    });
 
 export const connectDB = async () => {
   try {
     await sequelize.authenticate();
 
-    // Disable FK checks during sync (SQLite requirement)
-    await sequelize.query('PRAGMA foreign_keys = OFF;');
+    // SQLite needs FK checks off during sync
+    if (!isPostgres) await sequelize.query('PRAGMA foreign_keys = OFF;');
 
-    // Sync — first try alter, fall back to plain sync
     try {
       await sequelize.sync({ alter: true });
     } catch (err) {
@@ -39,10 +45,9 @@ export const connectDB = async () => {
       await sequelize.sync();
     }
 
-    // Re-enable FK checks
-    await sequelize.query('PRAGMA foreign_keys = ON;');
+    if (!isPostgres) await sequelize.query('PRAGMA foreign_keys = ON;');
 
-    console.log('✅ SQLite connected & synced');
+    console.log(`✅ ${isPostgres ? 'Postgres' : 'SQLite'} connected & synced`);
   } catch (err) {
     console.error('❌ DB error:', err);
     process.exit(1);
