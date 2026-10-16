@@ -4,6 +4,7 @@ import http from 'http';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
 import { initSockets } from './sockets/index.js';
+import { seedIfEmpty } from './seed.js';
 import './models/index.js'; // ← registers associations
 
 import authRoutes from './routes/auth.js';
@@ -29,7 +30,8 @@ app.get('/', (_, res) => res.json({ ok: true }));
 const server = http.createServer(app);
 initSockets(server);
 
-connectDB().then(() => {
+connectDB().then(async () => {
+  await seedIfEmpty();
   server.listen(process.env.PORT, () =>
     console.log(`🚀 Server on :${process.env.PORT}`)
   );

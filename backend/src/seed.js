@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
+import { pathToFileURL } from 'url';
 import { connectDB, sequelize } from './config/db.js';
 import {
   User,
@@ -56,20 +57,8 @@ const TABLES = ['1', '2', '3', '4', '5', '6', '7', '8'];
 /*  ───────────────────────────────────────────
     Main
 ─────────────────────────────────────────── */
-async function seed() {
-  try {
-    await connectDB();
-    console.log('🌱 Seeding database…\n');
-
-    /* ── Clean slate ── */
-    console.log('🗑️  Clearing existing data…');
-    const wipe = { where: {}, truncate: true, cascade: true };
-    await Order.destroy(wipe);
-    await MenuItem.destroy(wipe);
-    await Category.destroy(wipe);
-    await Table.destroy(wipe);
-    await User.destroy(wipe);
-
+// Inserts demo data. Does not wipe anything; caller decides when it is safe.
+export async function populate() {
     /* ── Users ── */
     console.log('\n👤 Creating users…');
     for (const u of USERS) {
@@ -112,6 +101,32 @@ async function seed() {
       console.log(`   ✅ Table ${number} → ${url}`);
     }
 
+}
+
+// Used on first start: seeds only if there are no users yet.
+export async function seedIfEmpty() {
+  if ((await User.count()) > 0) return;
+  console.log('🌱 Empty database, seeding demo data…');
+  await populate();
+  console.log('🌱 Seed complete');
+}
+
+async function seed() {
+  try {
+    await connectDB();
+    console.log('🌱 Seeding database…\n');
+
+    /* ── Clean slate ── */
+    console.log('🗑️  Clearing existing data…');
+    const wipe = { where: {}, truncate: true, cascade: true };
+    await Order.destroy(wipe);
+    await MenuItem.destroy(wipe);
+    await Category.destroy(wipe);
+    await Table.destroy(wipe);
+    await User.destroy(wipe);
+
+    await populate();
+
     /* ── Done ── */
     console.log('\n' + '═'.repeat(60));
     console.log('🎉 Seed complete!\n');
@@ -148,4 +163,5 @@ async function seed() {
   }
 }
 
-seed();
+// Only run when invoked directly (npm run seed), not when imported by the server
+if (import.meta.url === pathToFileURL(process.argv[1]).href) seed();
