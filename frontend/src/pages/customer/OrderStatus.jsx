@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
+import { useLang } from '../../i18n/LanguageContext';
+import LanguageSwitch from '../../components/LanguageSwitch';
 
 const STEPS = [
-  { key: 'pending', label: 'Placed', icon: '📝' },
-  { key: 'preparing', label: 'Preparing', icon: '👨‍🍳' },
-  { key: 'ready', label: 'Ready', icon: '🔔' },
-  { key: 'served', label: 'Served', icon: '🍽️' },
+  { key: 'pending', label: 'status.placed', icon: '📝' },
+  { key: 'preparing', label: 'status.preparing', icon: '👨‍🍳' },
+  { key: 'ready', label: 'status.ready', icon: '🔔' },
+  { key: 'served', label: 'status.served', icon: '🍽️' },
 ];
 
 export default function OrderStatus() {
   const { orderId, tableId } = useParams();
+  const { t } = useLang();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState('');
 
@@ -19,7 +22,7 @@ export default function OrderStatus() {
       api
         .get(`/orders/${orderId}`)
         .then((r) => setOrder(r.data))
-        .catch(() => setError('Could not load order'));
+        .catch(() => setError('status.loadFailed'));
     load();
     const t = setInterval(load, 4000);
     return () => clearInterval(t);
@@ -29,9 +32,9 @@ export default function OrderStatus() {
     return (
       <div className="max-w-xl mx-auto px-5 py-16 text-center text-ink-400">
         <div className="text-5xl mb-3">⚠️</div>
-        <p>{error}</p>
+        <p>{t(error)}</p>
         <Link to={`/order/${tableId}`} className="btn-outline mt-6 inline-block">
-          Back to menu
+          {t('status.backShort')}
         </Link>
       </div>
     );
@@ -42,7 +45,7 @@ export default function OrderStatus() {
       <div className="min-h-screen grid place-items-center text-ink-400">
         <div className="text-center animate-pulse-soft">
           <div className="text-4xl mb-2">🍽️</div>
-          <p className="text-sm">Loading your order…</p>
+          <p className="text-sm">{t('status.loading')}</p>
         </div>
       </div>
     );
@@ -52,17 +55,18 @@ export default function OrderStatus() {
   const cancelled = order.status === 'cancelled';
 
   return (
-    <div className="max-w-xl mx-auto px-5 py-10">
+    <div className="max-w-xl mx-auto px-5 py-10 relative">
+      <LanguageSwitch className="absolute top-4 right-5" />
       <div className="text-center mb-8">
         <div className="inline-grid place-items-center w-16 h-16 rounded-full
                         bg-sage-100 text-3xl mb-4">
           {cancelled ? '✕' : '✓'}
         </div>
         <h1 className="text-3xl mb-1">
-          {cancelled ? 'Order cancelled' : 'Order confirmed'}
+          {cancelled ? t('status.orderCancelled') : t('status.confirmed')}
         </h1>
         <p className="text-sm text-ink-500">
-          Table {order.table?.number} · #
+          {t('table')} {order.table?.number} · #
           {String(order.id).padStart(6, '0')}
         </p>
       </div>
@@ -88,7 +92,7 @@ export default function OrderStatus() {
                   className={`text-xs font-medium
                     ${i <= idx ? 'text-ink-900' : 'text-ink-400'}`}
                 >
-                  {s.label}
+                  {t(s.label)}
                 </p>
               </div>
             ))}
@@ -97,7 +101,7 @@ export default function OrderStatus() {
       )}
 
       <div className="card p-5 mb-5">
-        <h2 className="text-lg mb-3">Your items</h2>
+        <h2 className="text-lg mb-3">{t('status.yourItems')}</h2>
         <div className="space-y-2">
           {order.items.map((i, k) => (
             <div key={k} className="flex justify-between text-sm py-1">
@@ -112,7 +116,7 @@ export default function OrderStatus() {
           ))}
         </div>
         <div className="border-t border-ink-900/8 mt-3 pt-3 flex justify-between">
-          <span className="text-ink-500">Total</span>
+          <span className="text-ink-500">{t('total')}</span>
           <span className="font-display text-xl font-semibold">
             ${Number(order.total).toFixed(2)}
           </span>
@@ -127,7 +131,7 @@ export default function OrderStatus() {
 
       <div className="text-center">
         <Link to={`/order/${tableId}`} className="btn-outline">
-          ← Back to menu
+          {t('status.back')}
         </Link>
       </div>
     </div>

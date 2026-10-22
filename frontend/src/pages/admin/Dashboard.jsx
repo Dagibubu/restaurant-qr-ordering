@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { DashboardSkeleton } from '../../components/Skeleton';
+import { useLang } from '../../i18n/LanguageContext';
 
 export default function Dashboard() {
+  const { t, lang } = useLang();
   const [d, setD] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -12,7 +14,7 @@ export default function Dashboard() {
     api
       .get('/reports/summary')
       .then((r) => setD(r.data))
-      .catch(() => setError('Failed to load dashboard'))
+      .catch(() => setError('dash.failed'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -29,7 +31,7 @@ export default function Dashboard() {
       <div className="max-w-6xl mx-auto px-5 py-8">
         <div className="rounded-lg bg-red-50 border border-red-200
                         text-red-700 text-sm px-4 py-3">
-          {error}
+          {t(error)}
         </div>
       </div>
     );
@@ -43,11 +45,11 @@ export default function Dashboard() {
     <div className="max-w-6xl mx-auto px-5 py-8 space-y-6">
       <div>
         <p className="text-xs tracking-[0.3em] text-terracotta-600 uppercase mb-1">
-          Overview
+          {t('dash.overview')}
         </p>
-        <h1 className="text-3xl">Today at a glance</h1>
+        <h1 className="text-3xl">{t('dash.title')}</h1>
         <p className="text-sm text-ink-500 mt-1">
-          {new Date().toLocaleDateString(undefined, {
+          {new Date().toLocaleDateString(lang === 'am' ? 'am-ET' : undefined, {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
@@ -57,13 +59,13 @@ export default function Dashboard() {
 
       <div className="grid sm:grid-cols-2 gap-5">
         <Stat
-          label="Orders today"
+          label={t('dash.ordersToday')}
           value={d.todayOrders}
           accent="terracotta"
           icon="🧾"
         />
         <Stat
-          label="Revenue today"
+          label={t('dash.revenueToday')}
           value={`$${Number(d.todayRevenue).toFixed(2)}`}
           accent="sage"
           icon="💰"
@@ -71,7 +73,7 @@ export default function Dashboard() {
       </div>
 
       <div className="card p-6">
-        <h2 className="section-title mb-5">Top selling items</h2>
+        <h2 className="section-title mb-5">{t('dash.topSelling')}</h2>
         {d.topItems.length ? (
           <div className="space-y-3.5">
             {d.topItems.map((t, i) => (
@@ -97,7 +99,7 @@ export default function Dashboard() {
         ) : (
           <div className="py-8 text-center text-ink-400">
             <div className="text-4xl mb-2">📊</div>
-            <p className="text-sm">No sales yet — orders will show here.</p>
+            <p className="text-sm">{t('dash.noSales')}</p>
           </div>
         )}
       </div>

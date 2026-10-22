@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../i18n/LanguageContext';
+import LanguageSwitch from '../components/LanguageSwitch';
 
 export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
+  const { t } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
@@ -17,14 +20,15 @@ export default function Login() {
       const u = await login(email, password);
       nav(u.role === 'admin' ? '/admin' : '/staff');
     } catch (e) {
-      setErr(e.response?.data?.message || 'Login failed');
+      setErr(e.response?.data?.message || t('login.failed'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen grid place-items-center px-5 py-10">
+    <div className="min-h-screen grid place-items-center px-5 py-10 relative">
+      <LanguageSwitch className="absolute top-4 right-4" />
       <div className="w-full max-w-sm animate-fade-up">
 
         {/* Brand mark */}
@@ -33,8 +37,8 @@ export default function Login() {
                           bg-terracotta-500 shadow-lift text-3xl mb-4">
             🍽️
           </div>
-          <h1 className="text-3xl mb-1">Welcome back</h1>
-          <p className="text-sm text-ink-500">Sign in to manage your restaurant</p>
+          <h1 className="text-3xl mb-1">{t('login.welcome')}</h1>
+          <p className="text-sm text-ink-500">{t('login.subtitle')}</p>
         </div>
 
         <form onSubmit={submit} className="card p-6 space-y-4">
@@ -46,7 +50,7 @@ export default function Login() {
           )}
 
           <div>
-            <label className="label">Email</label>
+            <label className="label">{t('login.email')}</label>
             <input
               className="input" type="email" required
               placeholder="you@restaurant.com"
@@ -55,7 +59,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="label">Password</label>
+            <label className="label">{t('login.password')}</label>
             <input
               className="input" type="password" required
               placeholder="••••••••"
@@ -64,7 +68,7 @@ export default function Login() {
           </div>
 
           <button disabled={loading} className="btn-primary w-full">
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? t('login.signingIn') : t('login.signIn')}
           </button>
         </form>
 

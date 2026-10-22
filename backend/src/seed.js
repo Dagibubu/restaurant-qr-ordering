@@ -52,6 +52,41 @@ const MENU = {
   ],
 };
 
+/*  Amharic names + sub-categories (demo data)  */
+const CAT_AM = { Starters: 'መግቢያ', Mains: 'ዋና ምግብ', Desserts: 'ጣፋጭ', Drinks: 'መጠጦች' };
+
+// Main category → sub-categories, and which sub-category each dish belongs to
+const SUBS = {
+  Mains: [
+    { name: 'Pizza & Pasta', nameAm: 'ፒዛ እና ፓስታ', items: ['Margherita Pizza', 'Spaghetti Carbonara', 'Risotto ai Funghi'] },
+    { name: 'Grill & Sea',   nameAm: 'ጥብስ እና የባህር ምግብ', items: ['Grilled Salmon', 'Ribeye Steak', 'Chicken Parmigiana'] },
+  ],
+  Drinks: [
+    { name: 'Hot',     nameAm: 'ትኩስ',   items: ['Espresso'] },
+    { name: 'Cold',    nameAm: 'ቀዝቃዛ', items: ['Fresh Orange Juice'] },
+    { name: 'Alcohol', nameAm: 'አልኮል',  items: ['House Red Wine', 'Craft Beer'] },
+  ],
+};
+
+const ITEM_AM = {
+  'Bruschetta': 'ብሩሼታ',
+  'Calamari Fritti': 'ካላማሪ ፍሪቲ',
+  'Caprese Salad': 'ካፕረዜ ሰላጣ',
+  'Margherita Pizza': 'ማርጋሪታ ፒዛ',
+  'Spaghetti Carbonara': 'ስፓጌቲ ካርቦናራ',
+  'Grilled Salmon': 'የተጠበሰ ሳልሞን',
+  'Ribeye Steak': 'ሪብአይ ስቴክ',
+  'Risotto ai Funghi': 'የእንጉዳይ ሪዞቶ',
+  'Chicken Parmigiana': 'ዶሮ ፓርሚጃና',
+  'Tiramisu': 'ቲራሚሱ',
+  'Panna Cotta': 'ፓና ኮታ',
+  'Chocolate Lava Cake': 'ቸኮሌት ላቫ ኬክ',
+  'Espresso': 'ኤስፕሬሶ',
+  'Fresh Orange Juice': 'ትኩስ የብርቱካን ጭማቂ',
+  'House Red Wine': 'ቀይ ወይን',
+  'Craft Beer': 'ቢራ',
+};
+
 const TABLES = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
 /*  ───────────────────────────────────────────
@@ -76,15 +111,33 @@ export async function populate() {
     console.log('\n📂 Creating categories & menu items…');
     let order = 0;
     for (const [catName, items] of Object.entries(MENU)) {
-      const category = await Category.create({ name: catName, order: order++ });
+      const category = await Category.create({
+        name: catName,
+        nameAm: CAT_AM[catName],
+        order: order++,
+      });
       console.log(`   📁 ${catName}`);
+
+      const subs = {};
+      for (const [i, sub] of (SUBS[catName] || []).entries()) {
+        const created = await Category.create({
+          name: sub.name,
+          nameAm: sub.nameAm,
+          parentId: category.id,
+          order: i,
+        });
+        for (const itemName of sub.items) subs[itemName] = created;
+        console.log(`      ↳ ${sub.name}`);
+      }
+
       for (const it of items) {
         await MenuItem.create({
           name: it.name,
+          nameAm: ITEM_AM[it.name],
           description: it.description,
           price: it.price,
           image: it.image,
-          categoryId: category.id,
+          categoryId: (subs[it.name] || category).id,
           available: true,
         });
         console.log(`      • ${it.name}  $${it.price.toFixed(2)}`);

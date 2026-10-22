@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api/axios';
 import { MenuSkeleton } from '../../components/Skeleton';
+import { useLang } from '../../i18n/LanguageContext';
+import LanguageSwitch from '../../components/LanguageSwitch';
 
 /* ──────────────────────────────
    Animation variants
@@ -12,15 +14,6 @@ const container = {
   show: {
     opacity: 1,
     transition: { staggerChildren: 0.08, delayChildren: 0.15 },
-  },
-};
-
-const rowVariant = {
-  hidden: { opacity: 0, y: 40 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring', stiffness: 200, damping: 24 },
   },
 };
 
@@ -48,16 +41,17 @@ function burstParticles(x, y, count = 14) {
 export default function CustomerMenu() {
   const { tableId } = useParams();
   const nav = useNavigate();
+  const { t, localized } = useLang();
   const [items, setItems] = useState([]);
   const [cats, setCats] = useState([]);
   const [activeCat, setActiveCat] = useState('all');
+  const [activeSub, setActiveSub] = useState('all');
   const [cart, setCart] = useState({});
   const [note, setNote] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [justAdded, setJustAdded] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -66,17 +60,85 @@ export default function CustomerMenu() {
         setItems(i.data);
         setCats(c.data);
       })
-      .catch(() => setError('Failed to load menu'))
+      .catch(() => setError('menu.loadFailed'))
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(
+  const mains = useMemo(() => cats.filter((c) => !c.parentId), [cats]);
+  const activeMain = mains.find((m) => String(m.id) === String(activeCat));
+
+  // Dishes grouped into horizontally-scrolling rows: one per category,
+  // and one per sub-category inside a main category.
+  const sections = useMemo(() => {
+    const inCat = (id) => items.filter((i) => i.categoryId === id);
+    const sectionsFor = (main) => {
+      const subs = cats.filter((c) => c.parentId === main.id);
+      if (activeMain && activeSub !== 'all') {
+        const sub = subs.find((c) => String(c.id) === String(activeSub));
+        return sub ? [{ cat: sub, parent: main, items: inCat(sub.id) }] : [];
+      }
+      return [
+        { cat: main, items: inCat(main.id) },
+        ...subs.map((sub) => ({ cat: sub, parent: main, items: inCat(sub.id) })),
+      ];
+    };
+
+    const list = (activeMain ? [activeMain] : mains).flatMap(sectionsFor);
+
+    if (!activeMain) {
+      const known = new Set(cats.map((c) => c.id));
+      const orphans = items.filter((i) => !known.has(i.categoryId));
+      if (orphans.length) list.push({ cat: null, items: orphans });
+    }
+    return list.filter((sec) => sec.items.length);
+  }, [items, cats, mains, activeMain, activeSub]);
+
+  // Everything in view as ONE strip, each card tagged with its category
+  const strip = useMemo(
     () =>
-      activeCat === 'all'
-        ? items
-        : items.filter((i) => String(i.categoryId) === String(activeCat)),
-    [items, activeCat]
+      sections.flatMap((sec) => {
+        const label = sec.cat
+          ? sec.parent
+            ? `${localized(sec.parent, 'name')} · ${localized(sec.cat, 'name')}`
+            : localized(sec.cat, 'name')
+          : t('menu.other');
+        return sec.items.map((item) => ({ item, label }));
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sections, localized, t]
   );
+
+  // Sub-category cards shown under the showroom: the open main category's
+  // subs, or every sub when "All" is selected.
+  const subCards = useMemo(() => {
+    const parents = activeMain ? [activeMain] : mains;
+    return parents.flatMap((parent) =>
+      cats
+        .filter((c) => c.parentId === parent.id)
+        .map((sub) => {
+          const subItems = items.filter((i) => i.categoryId === sub.id);
+          return {
+            sub,
+            parent,
+            count: subItems.length,
+            image: subItems.find((i) => i.image)?.image,
+          };
+        })
+    );
+  }, [cats, items, mains, activeMain]);
+
+  const pickSub = (card) => {
+    const same =
+      String(activeCat) === String(card.parent.id) &&
+      String(activeSub) === String(card.sub.id);
+    setActiveCat(card.parent.id);
+    setActiveSub(same ? 'all' : card.sub.id);
+  };
+
+  const pickCat = (id) => {
+    setActiveCat(id);
+    setActiveSub('all');
+  };
 
   const add = (item, e) => {
     if (e) {
@@ -84,8 +146,6 @@ export default function CustomerMenu() {
       const y = e.clientY || e.target.getBoundingClientRect().y;
       burstParticles(x, y);
     }
-    setJustAdded(item.id);
-    setTimeout(() => setJustAdded(null), 700);
     setCart((c) => ({
       ...c,
       [item.id]: { ...item, quantity: (c[item.id]?.quantity || 0) + 1 },
@@ -125,7 +185,7 @@ export default function CustomerMenu() {
       });
       nav(`/order/${tableId}/status/${data.id}`);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to place order');
+      setError(err.response?.data?.message || t('menu.orderFailed'));
       setSubmitting(false);
     }
   };
@@ -139,6 +199,8 @@ export default function CustomerMenu() {
         transition={{ duration: 0.8 }}
         className="px-6 pt-14 pb-12 text-center relative"
       >
+        <LanguageSwitch dark className="absolute top-4 right-4" />
+
         <motion.p
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -146,7 +208,7 @@ export default function CustomerMenu() {
           className="text-[11px] tracking-[0.4em] uppercase mb-4"
           style={{ color: 'var(--menu-amber)' }}
         >
-          ✦ Table Service ✦
+          ✦ {t('menu.tableService')} ✦
         </motion.p>
 
         <motion.h1
@@ -156,9 +218,9 @@ export default function CustomerMenu() {
           className="hero-title font-display text-5xl sm:text-6xl leading-[1.05] mb-4"
           style={{ fontWeight: 500 }}
         >
-          Tonight's
+          {t('menu.heroTop')}
           <br />
-          Selection
+          {t('menu.heroBottom')}
         </motion.h1>
 
         <motion.div
@@ -179,7 +241,7 @@ export default function CustomerMenu() {
           className="text-sm max-w-md mx-auto"
           style={{ color: 'var(--menu-text-dim)' }}
         >
-          Follow the trail. Tap any dish to add it to your table's order.
+          {t('menu.hint')}
         </motion.p>
       </motion.section>
 
@@ -197,7 +259,7 @@ export default function CustomerMenu() {
               color: '#fca5a5',
             }}
           >
-            {error}
+            {t(error)}
           </motion.div>
         )}
       </AnimatePresence>
@@ -216,89 +278,102 @@ export default function CustomerMenu() {
             borderBottom: '1px solid rgba(255, 200, 130, 0.06)',
           }}
         >
-          <div className="flex gap-2 overflow-x-auto px-6 no-scrollbar justify-center">
+          <div className="flex gap-2 overflow-x-auto px-6 no-scrollbar sm:justify-center">
             <button
-              onClick={() => setActiveCat('all')}
+              onClick={() => pickCat('all')}
               className={`chip-dark ${activeCat === 'all' ? 'is-active' : ''}`}
             >
-              All
+              {t('all')}
             </button>
-            {cats.map((c) => (
+            {mains.map((c) => (
               <button
                 key={c.id}
-                onClick={() => setActiveCat(c.id)}
+                onClick={() => pickCat(c.id)}
                 className={`chip-dark ${
                   String(activeCat) === String(c.id) ? 'is-active' : ''
                 }`}
               >
-                {c.name}
+                {localized(c, 'name')}
               </button>
             ))}
           </div>
+
         </motion.div>
       )}
 
-      {/* ─── Journey trail ─── */}
+      {/* ─── Showroom strip (auto-scrolls right → left, draggable) ─── */}
       {loading ? (
         <MenuSkeleton />
-      ) : (
-        <div className="journey-wrapper max-w-3xl mx-auto px-4 sm:px-6">
-          <svg
-            className="journey-trail"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <defs>
-              <linearGradient id="trailGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(255,200,130,0.5)" />
-                <stop offset="50%" stopColor="rgba(255,200,130,0.15)" />
-                <stop offset="100%" stopColor="rgba(255,200,130,0.5)" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M 12 2 Q 88 12, 88 25 T 12 50 T 88 75 T 12 98"
-              fill="none"
-              stroke="url(#trailGrad)"
-              strokeWidth="0.35"
-              strokeDasharray="2 1.5"
-              vectorEffect="non-scaling-stroke"
+      ) : strip.length ? (
+        <Marquee
+          entries={strip}
+          renderCard={({ item, label }, key, copy) => (
+            <DishCard
+              key={key}
+              item={item}
+              label={label}
+              copy={copy}
+              quantity={cart[item.id]?.quantity || 0}
+              onAdd={(e) => add(item, e)}
+              onRemove={() => remove(item.id)}
             />
-          </svg>
-
-          <LayoutGroup>
-            <motion.div
-              variants={container}
-              initial="hidden"
-              animate="show"
-              className="relative space-y-16 sm:space-y-24 py-8"
-            >
-              <AnimatePresence mode="popLayout">
-                {filtered.map((item, idx) => (
-                  <JourneyRow
-                    key={item.id}
-                    item={item}
-                    side={idx % 2 === 0 ? 'left' : 'right'}
-                    quantity={cart[item.id]?.quantity || 0}
-                    justAdded={justAdded === item.id}
-                    onAdd={(e) => add(item, e)}
-                    onRemove={() => remove(item.id)}
-                  />
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          </LayoutGroup>
-
-          {!filtered.length && (
-            <div
-              className="text-center py-20"
-              style={{ color: 'var(--menu-text-dim)' }}
-            >
-              <div className="text-5xl mb-4">🍽️</div>
-              <p className="text-sm">No items in this category yet.</p>
-            </div>
           )}
+        />
+      ) : (
+        <div
+          className="text-center py-20"
+          style={{ color: 'var(--menu-text-dim)' }}
+        >
+          <div className="text-5xl mb-4">🍽️</div>
+          <p className="text-sm">{t('menu.empty')}</p>
         </div>
+      )}
+
+      {/* ─── Sub-categories (scroll only, no drift) ─── */}
+      {!loading && subCards.length > 0 && (
+        <section className="max-w-6xl mx-auto mt-2 mb-6">
+          <p className="menu-section-eyebrow px-6 mb-3">{t('menu.browseByType')}</p>
+          <SubStrip>
+            {activeMain && (
+              <button
+                type="button"
+                onClick={() => setActiveSub('all')}
+                className={`sub-card ${activeSub === 'all' ? 'is-active' : ''}`}
+              >
+                <span className="sub-thumb">✦</span>
+                <span className="sub-text">
+                  <span className="sub-name">{t('all')}</span>
+                  <span className="sub-count">{localized(activeMain, 'name')}</span>
+                </span>
+              </button>
+            )}
+            {subCards.map((card) => (
+              <button
+                key={card.sub.id}
+                type="button"
+                onClick={() => pickSub(card)}
+                className={`sub-card ${
+                  String(activeSub) === String(card.sub.id) ? 'is-active' : ''
+                }`}
+              >
+                <span className="sub-thumb">
+                  {card.image ? (
+                    <img src={card.image} alt="" draggable="false" loading="lazy" />
+                  ) : (
+                    '🍴'
+                  )}
+                </span>
+                <span className="sub-text">
+                  <span className="sub-name">{localized(card.sub, 'name')}</span>
+                  <span className="sub-count">
+                    {!activeMain && `${localized(card.parent, 'name')} · `}
+                    {t('menu.count', { n: card.count })}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </SubStrip>
+        </section>
       )}
 
       {/* ─── Floating cart ─── */}
@@ -326,7 +401,7 @@ export default function CustomerMenu() {
             >
               {totalQty}
             </motion.span>
-            <span className="text-sm">View Order</span>
+            <span className="text-sm">{t('menu.viewOrder')}</span>
             <span className="text-sm font-semibold">${total.toFixed(2)}</span>
           </motion.button>
         )}
@@ -372,14 +447,14 @@ export default function CustomerMenu() {
                   className="font-display text-2xl"
                   style={{ color: 'var(--menu-text)' }}
                 >
-                  Your Order
+                  {t('menu.yourOrder')}
                 </h2>
                 <button
                   onClick={() => !submitting && setCartOpen(false)}
                   className="text-xs uppercase tracking-wider"
                   style={{ color: 'var(--menu-text-dim)' }}
                 >
-                  Close
+                  {t('menu.close')}
                 </button>
               </div>
 
@@ -404,13 +479,13 @@ export default function CustomerMenu() {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {i.name}
+                          {localized(i, 'name')}
                         </p>
                         <p
                           className="text-xs"
                           style={{ color: 'var(--menu-text-dim)' }}
                         >
-                          ${Number(i.price).toFixed(2)} each
+                          ${Number(i.price).toFixed(2)} {t('menu.each')}
                         </p>
                       </div>
                       <div
@@ -463,7 +538,7 @@ export default function CustomerMenu() {
                 onBlur={(e) =>
                   (e.target.style.borderColor = 'rgba(255, 200, 130, 0.1)')
                 }
-                placeholder="Add a note for the kitchen (optional)"
+                placeholder={t('menu.notePlaceholder')}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 disabled={submitting}
@@ -474,7 +549,7 @@ export default function CustomerMenu() {
                   className="text-xs uppercase tracking-wider"
                   style={{ color: 'var(--menu-text-dim)' }}
                 >
-                  Total
+                  {t('total')}
                 </span>
                 <span className="font-display text-3xl">
                   ${total.toFixed(2)}
@@ -494,7 +569,7 @@ export default function CustomerMenu() {
                   boxShadow: '0 20px 40px -12px rgba(240, 169, 76, 0.5)',
                 }}
               >
-                {submitting ? 'Placing your order…' : 'Place Order →'}
+                {submitting ? t('menu.placing') : t('menu.placeOrder')}
               </motion.button>
             </motion.div>
           </>
@@ -505,76 +580,259 @@ export default function CustomerMenu() {
 }
 
 /* ──────────────────────────────
-   Journey row — alternating circular dish
+   Drag-to-scroll for a plain horizontal strip (mouse; touch is native)
 ────────────────────────────── */
-function JourneyRow({ item, side, quantity, justAdded, onAdd, onRemove }) {
-  const isLeft = side === 'left';
+function SubStrip({ children }) {
+  const ref = useRef(null);
+  const drag = useRef(null);
+
+  const onPointerDown = (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    drag.current = { x: e.clientX, left: ref.current.scrollLeft, moved: false };
+  };
+  const onPointerMove = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.x;
+    if (!d.moved && Math.abs(dx) > 5) d.moved = true;
+    if (d.moved) ref.current.scrollLeft = d.left - dx;
+  };
+  const end = () => {
+    // keep `moved` until the click that follows the drag has been swallowed
+    if (drag.current && !drag.current.moved) drag.current = null;
+    else setTimeout(() => (drag.current = null), 0);
+  };
 
   return (
-    <motion.div
-      variants={rowVariant}
-      layout
-      className={`journey-row ${isLeft ? 'is-left' : 'is-right'}`}
+    <div
+      ref={ref}
+      className="sub-strip no-scrollbar"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={end}
+      onPointerLeave={end}
+      onClickCapture={(e) => {
+        if (drag.current?.moved) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
     >
-      {/* Circle image */}
-      <motion.div
-        className={`journey-dish ${justAdded ? 'is-pulsing' : ''}`}
-        whileHover={{ scale: 1.04, rotate: isLeft ? -3 : 3 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+      {children}
+    </div>
+  );
+}
+
+/* ──────────────────────────────
+   Showroom marquee
+   A track that glides right → left on its own. The offset is driven by a
+   velocity that eases toward the drift speed, so everything feels physical:
+   hovering eases it to a stop, a drag/fling carries momentum, and after a
+   short rest it eases back into the drift.
+   Cards are rendered several times so the loop has no seam.
+────────────────────────────── */
+const DRIFT_SPEED = 38; // px per second
+const REST_AFTER_TOUCH = 1600; // ms to stay still after the customer lets go
+
+function Marquee({ entries, renderCard }) {
+  const viewport = useRef(null);
+  const track = useRef(null);
+  const st = useRef({ x: 0, vel: DRIFT_SPEED, hover: false, rest: 0, drag: null, moved: false });
+  const copies = Math.max(3, Math.ceil(16 / entries.length));
+
+  useEffect(() => {
+    const el = track.current;
+    const state = st.current;
+    if (!el) return;
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let raf;
+    let last = performance.now();
+
+    const tick = (now) => {
+      const dt = Math.min(now - last, 64) / 1000;
+      last = now;
+      const w = el.scrollWidth / copies;
+
+      if (!state.drag) {
+        const wantsRest = state.hover || now < state.rest || reduce;
+        const target = wantsRest ? 0 : DRIFT_SPEED;
+        const ease = target === 0 ? 3 : 1.1; // brake firmly, accelerate gently
+        state.vel += (target - state.vel) * Math.min(1, dt * ease);
+        state.x += state.vel * dt;
+      }
+      if (w > 0) state.x = ((state.x % w) + w) % w;
+
+      el.style.transform = `translate3d(${-state.x}px, 0, 0)`;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [entries, copies]);
+
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const state = st.current;
+    state.drag = { id: e.pointerId, lastX: e.clientX, lastT: performance.now(), captured: false };
+    state.moved = false;
+    state.vel = 0;
+  };
+
+  const onPointerMove = (e) => {
+    const state = st.current;
+    const d = state.drag;
+    if (!d || d.id !== e.pointerId) return;
+
+    const now = performance.now();
+    const dx = e.clientX - d.lastX;
+    if (!d.captured && Math.abs(dx) < 4) return;
+
+    if (!d.captured) {
+      // From here on it is a drag, not a tap on a card
+      d.captured = true;
+      state.moved = true;
+      viewport.current.setPointerCapture(e.pointerId);
+      viewport.current.classList.add('is-dragging');
+    }
+    const dt = Math.max(now - d.lastT, 1) / 1000;
+    state.x -= dx;
+    state.vel = state.vel * 0.6 + (-dx / dt) * 0.4; // smoothed finger velocity
+    d.lastX = e.clientX;
+    d.lastT = now;
+  };
+
+  const endDrag = (e) => {
+    const state = st.current;
+    if (!state.drag || state.drag.id !== e.pointerId) return;
+    if (state.drag.captured) {
+      // A stale velocity (finger stopped before lifting) shouldn't fling
+      if (performance.now() - state.drag.lastT > 90) state.vel = 0;
+      state.vel = Math.max(-2500, Math.min(2500, state.vel));
+      viewport.current.classList.remove('is-dragging');
+    }
+    state.drag = null;
+    state.rest = performance.now() + REST_AFTER_TOUCH;
+  };
+
+  const onWheel = (e) => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // leave vertical page scroll alone
+    st.current.x += e.deltaX;
+    st.current.vel = 0;
+    st.current.rest = performance.now() + REST_AFTER_TOUCH;
+  };
+
+  const swallowClickAfterDrag = (e) => {
+    if (st.current.moved) {
+      e.preventDefault();
+      e.stopPropagation();
+      st.current.moved = false;
+    }
+  };
+
+  const nudge = (dir) => {
+    st.current.vel = dir * 1500;
+    st.current.rest = performance.now() + REST_AFTER_TOUCH;
+  };
+
+  return (
+    <div className="dish-rail-wrap">
+      <button
+        type="button"
+        aria-label="Scroll left"
+        onClick={() => nudge(-1)}
+        className="rail-arrow is-prev hidden md:grid"
       >
-        <div className="journey-ring" />
-        <div className="journey-ring journey-ring-2" />
-        <div className="journey-photo">
+        ‹
+      </button>
+
+      <div
+        ref={viewport}
+        className="dish-rail"
+        onPointerEnter={(e) => {
+          if (e.pointerType === 'mouse') st.current.hover = true;
+        }}
+        onPointerLeave={(e) => {
+          if (e.pointerType === 'mouse') st.current.hover = false;
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onWheel={onWheel}
+        onClickCapture={swallowClickAfterDrag}
+      >
+        <div ref={track} className="dish-track">
+          {Array.from({ length: copies }, (_, c) => (
+            <div
+              key={c}
+              className="dish-rail-copy"
+              aria-hidden={c > 0 ? true : undefined}
+            >
+              {entries.map((entry) =>
+                renderCard(entry, `${c}-${entry.item.id}`, c > 0)
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        aria-label="Scroll right"
+        onClick={() => nudge(1)}
+        className="rail-arrow is-next hidden md:grid"
+      >
+        ›
+      </button>
+    </div>
+  );
+}
+
+/* ──────────────────────────────
+   Dish card — circular photo
+────────────────────────────── */
+// `copy` = a repeated card in the seamless loop: fully clickable, but skipped by keyboard focus
+function DishCard({ item, label, copy, quantity, onAdd, onRemove }) {
+  const { t, localized } = useLang();
+  const name = localized(item, 'name');
+  const description = localized(item, 'description');
+
+  return (
+    <article className={`dish-card ${quantity > 0 ? 'is-active' : ''}`}>
+      <div className="dish-photo-wrap">
+        <div className="dish-photo">
           {item.image ? (
-            <img src={item.image} alt={item.name} />
+            <img src={item.image} alt={name} loading="lazy" draggable="false" />
           ) : (
-            <span className="text-4xl">🍴</span>
+            <span>🍴</span>
           )}
         </div>
-        <span className="journey-dot journey-dot-a" />
-        <span className="journey-dot journey-dot-b" />
-        <span className="journey-dot journey-dot-c" />
-      </motion.div>
+        <span className="dish-price">${Number(item.price).toFixed(2)}</span>
+      </div>
 
-      {/* Info card */}
-      <motion.div
-        layout
-        className={`journey-card ${quantity > 0 ? 'is-active' : ''}`}
-      >
-        <span
-          className="journey-price"
-          style={{
-            [isLeft ? 'right' : 'left']: '-12px',
-          }}
-        >
-          ${Number(item.price).toFixed(2)}
-        </span>
+      <div className="dish-body">
+        {label && <p className="dish-cat">{label}</p>}
+        <h3 className="dish-title">{name}</h3>
+        {description && <p className="dish-desc">{description}</p>}
 
-        <h3 className="journey-title">{item.name}</h3>
-        {item.category?.name && (
-          <p className="journey-cat">{item.category.name}</p>
-        )}
-        {item.description && (
-          <p className="journey-desc">{item.description}</p>
-        )}
-
-        <div className="journey-cta">
+        <div className="dish-cta">
           {quantity === 0 ? (
             <motion.button
-              whileHover={{ scale: 1.06 }}
-              whileTap={{ scale: 0.94 }}
+              whileTap={{ scale: 0.95 }}
               onClick={onAdd}
-              className="journey-btn"
+              tabIndex={copy ? -1 : undefined}
+              className="dish-btn"
             >
-              <span>Order Now</span>
-              <span className="journey-btn-arrow">→</span>
+              <span>{t('menu.orderNow')}</span>
+              <span>→</span>
             </motion.button>
           ) : (
-            <div className="journey-counter">
+            <div className="dish-counter">
               <motion.button
                 whileTap={{ scale: 0.85 }}
                 onClick={onRemove}
-                className="journey-counter-btn"
+                tabIndex={copy ? -1 : undefined}
+                className="dish-counter-btn"
               >
                 −
               </motion.button>
@@ -583,21 +841,22 @@ function JourneyRow({ item, side, quantity, justAdded, onAdd, onRemove }) {
                 initial={{ scale: 1.4, color: 'var(--menu-amber-bright)' }}
                 animate={{ scale: 1, color: 'var(--menu-text)' }}
                 transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-                className="journey-counter-val"
+                className="dish-counter-val"
               >
                 {quantity}
               </motion.span>
               <motion.button
                 whileTap={{ scale: 0.85 }}
                 onClick={onAdd}
-                className="journey-counter-btn is-filled"
+                tabIndex={copy ? -1 : undefined}
+                className="dish-counter-btn is-filled"
               >
                 +
               </motion.button>
             </div>
           )}
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </article>
   );
 }

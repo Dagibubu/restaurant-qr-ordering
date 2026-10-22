@@ -13,10 +13,17 @@ import tableRoutes from './routes/tables.js';
 import orderRoutes from './routes/orders.js';
 import reportRoutes from './routes/reports.js';
 import uploadRoutes from './routes/upload.js';
+import { UPLOAD_DIR, useCloudinary } from './config/cloudinary.js';
 
 const app = express();
+app.set('trust proxy', 1); // correct https URLs behind Render's proxy
 app.use(cors({ origin: process.env.CLIENT_URL }));
 app.use(express.json({ limit: '5mb' }));
+
+if (!useCloudinary) {
+  console.log('📁 Cloudinary not configured — saving uploads to', UPLOAD_DIR);
+  app.use('/uploads', express.static(UPLOAD_DIR));
+}
 
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);

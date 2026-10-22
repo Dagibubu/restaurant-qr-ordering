@@ -11,12 +11,46 @@ router.get('/categories', async (_, res) => {
 });
 
 router.post('/categories', protect, adminOnly, async (req, res) => {
-  const cat = await Category.create(req.body);
+  const { name, nameAm, parentId } = req.body;
+  if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
+
+  if (parentId) {
+    const parent = await Category.findByPk(parentId);
+    if (!parent) return res.status(400).json({ message: 'Parent category not found' });
+    if (parent.parentId)
+      return res.status(400).json({ message: 'Sub-categories cannot have their own sub-categories' });
+  }
+
+  const cat = await Category.create({
+    name: name.trim(),
+    nameAm: nameAm?.trim() || null,
+    parentId: parentId || null,
+    order: await Category.count({ where: { parentId: parentId || null } }),
+  });
   res.json(cat);
 });
 
 router.delete('/categories/:id', protect, adminOnly, async (req, res) => {
-  await Category.destroy({ where: { id: req.params.id } });
+  const cat = await Category.findByPk(req.params.id);
+  if (!cat) return res.json({ ok: true });
+
+  if (cat.parentId) {
+    // Sub-category: keep its dishes by moving them up to the parent
+    await MenuItem.update(
+      { categoryId: cat.parentId },
+      { where: { categoryId: cat.id } }
+    );
+  } else {
+    // Main category: its sub-categories go with it (dishes are orphaned)
+    const subIds = (await Category.findAll({ where: { parentId: cat.id } })).map((c) => c.id);
+    await MenuItem.update(
+      { categoryId: null },
+      { where: { categoryId: [cat.id, ...subIds] } }
+    );
+    await Category.destroy({ where: { parentId: cat.id } });
+  }
+  await MenuItem.update({ categoryId: null }, { where: { categoryId: cat.id } });
+  await cat.destroy();
   res.json({ ok: true });
 });
 

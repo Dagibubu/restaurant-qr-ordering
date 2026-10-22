@@ -11,6 +11,14 @@ const Category = sequelize.define('Category', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  nameAm: {
+    type: DataTypes.STRING,
+  },
+  // null = main category; otherwise the id of the parent main category
+  parentId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
   order: {
     type: DataTypes.INTEGER,
     defaultValue: 0,

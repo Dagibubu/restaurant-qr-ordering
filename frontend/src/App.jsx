@@ -10,6 +10,7 @@ import MenuManage from './pages/admin/MenuManage';
 import TablesManage from './pages/admin/TablesManage';
 import Reports from './pages/admin/Reports';
 import Navbar from './components/Navbar';
+import { LanguageProvider } from './i18n/LanguageContext';
 
 const Protected = ({ children, role }) => {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ const Protected = ({ children, role }) => {
 
 export default function App() {
   return (
+    <LanguageProvider>
     <AuthProvider>
       <BrowserRouter>
         <Navbar />
@@ -44,5 +46,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </LanguageProvider>
   );
 }

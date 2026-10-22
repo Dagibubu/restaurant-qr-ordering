@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import api from '../../api/axios';
+import { useLang } from '../../i18n/LanguageContext';
 
 export default function TablesManage() {
+  const { t: tr } = useLang();
   const [tables, setTables] = useState([]);
   const [number, setNumber] = useState('');
   const [loading, setLoading] = useState(false);
@@ -12,7 +14,7 @@ export default function TablesManage() {
     api
       .get('/tables')
       .then((r) => setTables(r.data))
-      .catch(() => setError('Failed to load tables'));
+      .catch(() => setError(tr('tables.loadFailed')));
   useEffect(() => {
     load();
   }, []);
@@ -27,14 +29,14 @@ export default function TablesManage() {
       setNumber('');
       load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add table');
+      setError(err.response?.data?.message || tr('tables.addFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const del = async (id) => {
-    if (!confirm('Delete table?')) return;
+    if (!confirm(tr('tables.confirmDelete'))) return;
     await api.delete(`/tables/${id}`);
     load();
   };
@@ -102,13 +104,13 @@ export default function TablesManage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <p className="text-xs tracking-[0.3em] text-terracotta-600 uppercase mb-1">
-            Tables
+            {tr('tables.eyebrow')}
           </p>
-          <h1 className="text-3xl">QR Codes</h1>
+          <h1 className="text-3xl">{tr('tables.title')}</h1>
         </div>
         {tables.length > 0 && (
           <button onClick={printAll} className="btn-outline">
-            🖨️ Print All ({tables.length})
+            🖨️ {tr('tables.printAll', { n: tables.length })}
           </button>
         )}
       </div>
@@ -122,24 +124,24 @@ export default function TablesManage() {
 
       <form onSubmit={add} className="card p-4 mb-6 flex gap-3 items-end">
         <div className="flex-1">
-          <label className="label">New table number</label>
+          <label className="label">{tr('tables.newNumber')}</label>
           <input
             required
             className="input"
-            placeholder="e.g. 7 or A3"
+            placeholder={tr('tables.placeholder')}
             value={number}
             onChange={(e) => setNumber(e.target.value)}
           />
         </div>
         <button disabled={loading} className="btn-primary">
-          {loading ? 'Adding…' : 'Add Table'}
+          {loading ? tr('tables.adding') : tr('tables.add')}
         </button>
       </form>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {tables.map((t) => (
           <div key={t.id} className="card p-4 text-center group animate-fade-up">
-            <p className="font-display text-lg mb-2">Table {t.number}</p>
+            <p className="font-display text-lg mb-2">{tr('table')} {t.number}</p>
             {t.qrCode && (
               <div className="bg-white rounded-lg p-2 mb-3">
                 <img
@@ -156,13 +158,13 @@ export default function TablesManage() {
                 download={`table-${t.number}.png`}
                 className="text-ink-500 hover:text-terracotta-600"
               >
-                Download
+                {tr('tables.download')}
               </a>
               <button
                 onClick={() => del(t.id)}
                 className="text-ink-500 hover:text-red-600"
               >
-                Delete
+                {tr('delete')}
               </button>
             </div>
           </div>
@@ -171,7 +173,7 @@ export default function TablesManage() {
         {!tables.length && (
           <div className="col-span-full card p-16 text-center text-ink-400">
             <div className="text-5xl mb-3">🪑</div>
-            <p>No tables yet — add your first one above.</p>
+            <p>{tr('tables.none')}</p>
           </div>
         )}
       </div>

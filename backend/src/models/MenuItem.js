@@ -11,6 +11,12 @@ const MenuItem = sequelize.define('MenuItem', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  nameAm: {
+    type: DataTypes.STRING,
+  },
+  descriptionAm: {
+    type: DataTypes.TEXT,
+  },
   description: {
     type: DataTypes.TEXT,
   },

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
+import { useLang } from '../../i18n/LanguageContext';
 
 export default function Reports() {
+  const { t } = useLang();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -10,7 +12,7 @@ export default function Reports() {
     api
       .get('/orders')
       .then((r) => setOrders(r.data))
-      .catch(() => setError('Failed to load orders'))
+      .catch(() => setError('reports.failed'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -22,38 +24,38 @@ export default function Reports() {
     <div className="max-w-6xl mx-auto px-5 py-8">
       <div className="mb-6">
         <p className="text-xs tracking-[0.3em] text-terracotta-600 uppercase mb-1">
-          History
+          {t('reports.history')}
         </p>
-        <h1 className="text-3xl">All Orders</h1>
+        <h1 className="text-3xl">{t('reports.title')}</h1>
       </div>
 
       {error && (
         <div className="mb-4 rounded-lg bg-red-50 border border-red-200
                         text-red-700 text-sm px-3 py-2">
-          {error}
+          {t(error)}
         </div>
       )}
 
       <div className="card overflow-x-auto">
         {loading ? (
           <div className="p-12 text-center text-ink-400 animate-pulse-soft">
-            Loading…
+            {t('loading')}
           </div>
         ) : !orders.length ? (
           <div className="p-12 text-center text-ink-400">
             <div className="text-4xl mb-2">📋</div>
-            <p className="text-sm">No orders yet.</p>
+            <p className="text-sm">{t('reports.none')}</p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-cream-100 text-left">
               <tr>
-                <th className="p-3">Date</th>
-                <th className="p-3">Order</th>
-                <th className="p-3">Table</th>
-                <th className="p-3">Items</th>
-                <th className="p-3">Total</th>
-                <th className="p-3">Status</th>
+                <th className="p-3">{t('reports.date')}</th>
+                <th className="p-3">{t('reports.order')}</th>
+                <th className="p-3">{t('table')}</th>
+                <th className="p-3">{t('reports.items')}</th>
+                <th className="p-3">{t('total')}</th>
+                <th className="p-3">{t('reports.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -76,7 +78,7 @@ export default function Reports() {
                   </td>
                   <td className="p-3">
                     <span className={`badge-${o.status} capitalize`}>
-                      {o.status}
+                      {t(`status.${o.status}`)}
                     </span>
                   </td>
                 </tr>
@@ -85,7 +87,7 @@ export default function Reports() {
             <tfoot className="bg-cream-100 font-bold">
               <tr>
                 <td colSpan="4" className="p-3 text-right">
-                  Total Revenue
+                  {t('reports.revenue')}
                 </td>
                 <td className="p-3">${revenue.toFixed(2)}</td>
                 <td></td>
