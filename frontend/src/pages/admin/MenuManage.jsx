@@ -17,7 +17,9 @@ export default function MenuManage() {
   const [items, setItems] = useState([]);
   const [cats, setCats] = useState([]);
   const [form, setForm] = useState(EMPTY_ITEM);
-  const [catForm, setCatForm] = useState({ name: '', nameAm: '', parentId: '' });
+  const [catForm, setCatForm] = useState({ name: '', nameAm: '' });
+  const [subFor, setSubFor] = useState(null); // main category id whose sub form is open
+  const [subForm, setSubForm] = useState({ name: '', nameAm: '' });
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [catError, setCatError] = useState('');
@@ -85,19 +87,18 @@ export default function MenuManage() {
     }
   };
 
-  const addCategory = async (e) => {
-    e.preventDefault();
-    if (!catForm.name.trim()) return;
+  // Creates a main category (no parentId) or a sub-category (parentId = main id)
+  const createCategory = async (form, parentId = null) => {
+    if (!form.name.trim()) return false;
     setCatError('');
     try {
       await api.post('/menu/categories', {
-        name: catForm.name,
-        nameAm: catForm.nameAm,
-        parentId: catForm.parentId || null,
+        name: form.name,
+        nameAm: form.nameAm,
+        parentId,
       });
-      // keep the chosen parent so several sub-categories can be added in a row
-      setCatForm((f) => ({ name: '', nameAm: '', parentId: f.parentId }));
       load();
+      return true;
     } catch (err) {
       const status = err.response?.status;
       setCatError(
@@ -105,7 +106,19 @@ export default function MenuManage() {
           ? t('manage.sessionExpired')
           : err.response?.data?.message || err.message
       );
+      return false;
     }
+  };
+
+  const addCategory = async (e) => {
+    e.preventDefault();
+    if (await createCategory(catForm)) setCatForm({ name: '', nameAm: '' });
+  };
+
+  const addSubCategory = async (e) => {
+    e.preventDefault();
+    // stay open after a successful add so several subs can be entered in a row
+    if (await createCategory(subForm, subFor)) setSubForm({ name: '', nameAm: '' });
   };
 
   const delItem = async (id) => {
@@ -138,36 +151,24 @@ export default function MenuManage() {
         <h2 className="section-title mb-4">
           {t('manage.categories', { n: cats.length })}
         </h2>
-        <form onSubmit={addCategory} className="grid sm:grid-cols-12 gap-3 mb-5">
+        <form onSubmit={addCategory} className="grid sm:grid-cols-12 gap-3 mb-2">
           <input
-            className="input sm:col-span-4"
+            className="input sm:col-span-5"
             placeholder={t('manage.newCategory')}
             value={catForm.name}
             onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
           />
           <input
-            className="input sm:col-span-3"
+            className="input sm:col-span-4"
             placeholder={t('manage.newCategoryAm')}
             value={catForm.nameAm}
             onChange={(e) => setCatForm({ ...catForm, nameAm: e.target.value })}
           />
-          <select
-            className="input sm:col-span-3"
-            aria-label={t('manage.subOf')}
-            value={catForm.parentId}
-            onChange={(e) => setCatForm({ ...catForm, parentId: e.target.value })}
-          >
-            <option value="">{t('manage.mainCategory')}</option>
-            {tree.map((m) => (
-              <option key={m.id} value={m.id}>
-                {t('manage.subOf')} {localized(m, 'name')}
-              </option>
-            ))}
-          </select>
-          <button className="btn-primary whitespace-nowrap sm:col-span-2">
-            {catForm.parentId ? t('manage.addSub') : t('manage.addCategory')}
+          <button className="btn-primary whitespace-nowrap sm:col-span-3">
+            {t('manage.addCategory')}
           </button>
         </form>
+        <p className="text-xs text-ink-400 mb-5">{t('manage.subHint')}</p>
 
         {catError && (
           <div className="mb-4 text-xs bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2">
@@ -175,18 +176,53 @@ export default function MenuManage() {
           </div>
         )}
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {tree.map((m) => (
-            <div key={m.id} className="flex flex-wrap items-center gap-2">
-              <CatChip label={localized(m, 'name')} onDelete={() => delCat(m)} main />
-              {m.subs.length > 0 && <span className="text-ink-400 text-sm">›</span>}
-              {m.subs.map((sc) => (
-                <CatChip
-                  key={sc.id}
-                  label={localized(sc, 'name')}
-                  onDelete={() => delCat(sc)}
-                />
-              ))}
+            <div key={m.id} className="rounded-xl border border-ink-900/5 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <CatChip label={localized(m, 'name')} onDelete={() => delCat(m)} main />
+                {m.subs.length > 0 && <span className="text-ink-400 text-sm">›</span>}
+                {m.subs.map((sc) => (
+                  <CatChip
+                    key={sc.id}
+                    label={localized(sc, 'name')}
+                    onDelete={() => delCat(sc)}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSubFor(subFor === m.id ? null : m.id)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-dashed
+                             border-terracotta-300 text-terracotta-600
+                             hover:bg-terracotta-50 transition-colors"
+                >
+                  {subFor === m.id ? t('manage.cancel') : t('manage.addSubBtn')}
+                </button>
+              </div>
+
+              {subFor === m.id && (
+                <form
+                  onSubmit={addSubCategory}
+                  className="grid sm:grid-cols-12 gap-3 mt-3"
+                >
+                  <input
+                    autoFocus
+                    className="input sm:col-span-5"
+                    placeholder={t('manage.subName')}
+                    value={subForm.name}
+                    onChange={(e) => setSubForm({ ...subForm, name: e.target.value })}
+                  />
+                  <input
+                    className="input sm:col-span-4"
+                    placeholder={t('manage.newCategoryAm')}
+                    value={subForm.nameAm}
+                    onChange={(e) => setSubForm({ ...subForm, nameAm: e.target.value })}
+                  />
+                  <button className="btn-primary whitespace-nowrap sm:col-span-3">
+                    {t('manage.addSub')}
+                  </button>
+                </form>
+              )}
             </div>
           ))}
           {!cats.length && (
