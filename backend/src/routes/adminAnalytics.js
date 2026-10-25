@@ -5,7 +5,14 @@ import { buildAnalyticsSnapshot } from '../services/analyticsSnapshot.js';
 
 const router = express.Router();
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+// Google retires and overloads models often, so try a short list in order.
+// Set GEMINI_MODEL to put your own choice first.
+const MODELS = [
+  process.env.GEMINI_MODEL,
+  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash-lite',
+].filter(Boolean);
+const CALL_TIMEOUT_MS = 30_000;
 const MAX_QUESTION_LENGTH = 500;
 
 /* ─────────────────────────────────────────────
@@ -111,17 +118,39 @@ router.post('/', protect, adminOnly, async (req, res) => {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     recentCalls.push(Date.now());
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: buildPrompt({ type, question, lang, snapshot }),
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 0.4,
-        maxOutputTokens: 2048,
-        // 2.5 "thinking" tokens would eat into the output budget and slow replies
-        ...(MODEL.startsWith('gemini-2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-      },
-    });
+    const prompt = buildPrompt({ type, question, lang, snapshot });
+    let response;
+    let usedModel;
+    let lastErr;
+    for (const model of MODELS) {
+      try {
+        response = await Promise.race([
+          ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction: SYSTEM_INSTRUCTION,
+              temperature: 0.4,
+              maxOutputTokens: 4096,
+              // 2.5 "thinking" tokens would eat into the output budget and slow replies
+              ...(model.startsWith('gemini-2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+            },
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(Object.assign(new Error('Gemini timed out'), { status: 504 })), CALL_TIMEOUT_MS)
+          ),
+        ]);
+        usedModel = model;
+        break;
+      } catch (err) {
+        lastErr = err;
+        const st = err?.status ?? err?.code;
+        // quota / auth problems won't be fixed by another model; unavailable or slow ones might
+        if (![404, 500, 503, 504].includes(st)) throw err;
+        console.warn(`Gemini model ${model} unavailable (${st}), trying next`);
+      }
+    }
+    if (!response) throw lastErr;
 
     const answer = response.text?.trim();
     if (!answer) {
@@ -130,7 +159,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
         .json({ code: 'EMPTY', message: 'The AI returned no answer. Please try again.' });
     }
 
-    const payload = { answer, model: MODEL, generatedAt: new Date().toISOString(), cached: false };
+    const payload = { answer, model: usedModel, generatedAt: new Date().toISOString(), cached: false };
     cache.set(cacheKey, { at: Date.now(), payload });
     res.json(payload);
   } catch (err) {
@@ -142,6 +171,12 @@ router.post('/', protect, adminOnly, async (req, res) => {
         code: 'RATE_LIMITED',
         message: 'The AI service is busy (free-tier limit reached). Please try again in about 30 seconds.',
         retryAfter: 30,
+      });
+    }
+    if (status === 503 || status === 504 || status === 404) {
+      return res.status(503).json({
+        code: 'AI_BUSY',
+        message: 'The AI service is overloaded right now. Please try again in a minute.',
       });
     }
     if (status === 400 || status === 401 || status === 403) {
