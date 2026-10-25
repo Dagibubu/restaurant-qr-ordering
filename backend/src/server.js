@@ -13,6 +13,7 @@ import tableRoutes from './routes/tables.js';
 import orderRoutes from './routes/orders.js';
 import reportRoutes from './routes/reports.js';
 import uploadRoutes from './routes/upload.js';
+import adminAnalyticsRoutes from './routes/adminAnalytics.js';
 import { UPLOAD_DIR, useCloudinary } from './config/cloudinary.js';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/tables', tableRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/admin/ai-analytics', adminAnalyticsRoutes);
 
 app.get('/', (_, res) => res.json({ ok: true }));
 

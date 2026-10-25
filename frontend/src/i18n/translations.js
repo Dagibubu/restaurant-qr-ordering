@@ -69,6 +69,23 @@ export const translations = {
     'status.loading': 'Loading your order…',
     'status.loadFailed': 'Could not load order',
 
+    // admin: AI analytics
+    'ai.title': 'AI Business Insights',
+    'ai.subtitle': 'Ask about sales, menu performance and operations. Only aggregated totals are shared with the AI — no customer or staff details.',
+    'ai.audit': 'Run Restaurant Health Audit',
+    'ai.quickDaily': 'Summarize Daily Restaurant Performance',
+    'ai.quickTop': 'Identify Top Sellers & Menu Optimization Tips',
+    'ai.quickInventory': 'Check Inventory Waste & Low Stock Risks',
+    'ai.placeholder': 'Ask a business question, e.g. “Which hours should I staff more?”',
+    'ai.ask': 'Ask',
+    'ai.loading': 'Analysing your restaurant data… this can take a few seconds.',
+    'ai.rateLimited': 'Too many AI requests right now (free-tier limit). Please wait a moment.',
+    'ai.cooldown': 'You can ask again in {n}s.',
+    'ai.notConfigured': 'AI analytics is not set up yet. Add GEMINI_API_KEY to the backend settings.',
+    'ai.failed': 'Could not generate the analysis. Please try again.',
+    'ai.cached': 'recent result reused',
+    'ai.disclaimer': 'AI-generated advice — double-check before acting.',
+
     // admin: dashboard
     'dash.overview': 'Overview',
     'dash.title': 'Today at a glance',
@@ -214,6 +231,23 @@ export const translations = {
     'status.backShort': 'ወደ ምናሌ ተመለስ',
     'status.loading': 'ትዕዛዝዎን በመጫን ላይ…',
     'status.loadFailed': 'ትዕዛዙን መጫን አልተሳካም',
+
+    // admin: AI analytics
+    'ai.title': 'የAI የንግድ ትንታኔ',
+    'ai.subtitle': 'ስለ ሽያጭ፣ የምናሌ አፈጻጸም እና አሠራር ይጠይቁ። ለAI የሚላኩት የተጠቃለሉ ድምሮች ብቻ ናቸው — የደንበኛም ሆነ የሠራተኛ መረጃ አይላክም።',
+    'ai.audit': 'የምግብ ቤት ጤና ምርመራ አድርግ',
+    'ai.quickDaily': 'የዕለቱን የምግብ ቤት አፈጻጸም አጠቃልል',
+    'ai.quickTop': 'ምርጥ ሻጮችን እና የምናሌ ማሻሻያ ምክሮችን አሳይ',
+    'ai.quickInventory': 'የምግብ ብክነት እና የአነስተኛ ክምችት አደጋዎችን ፈትሽ',
+    'ai.placeholder': 'የንግድ ጥያቄ ይጠይቁ፣ ለምሳሌ “በየትኞቹ ሰዓታት ተጨማሪ ሠራተኛ ያስፈልጋል?”',
+    'ai.ask': 'ጠይቅ',
+    'ai.loading': 'የምግብ ቤትዎን መረጃ በመተንተን ላይ… ጥቂት ሰከንዶች ሊወስድ ይችላል።',
+    'ai.rateLimited': 'አሁን ብዙ የAI ጥያቄዎች ተልከዋል (የነፃ አገልግሎት ገደብ)። እባክዎ ትንሽ ይጠብቁ።',
+    'ai.cooldown': 'በ{n} ሰከንድ ውስጥ እንደገና መጠየቅ ይችላሉ።',
+    'ai.notConfigured': 'የAI ትንታኔ እስካሁን አልተዘጋጀም። GEMINI_API_KEY ወደ ባክኤንድ ቅንብር ያክሉ።',
+    'ai.failed': 'ትንታኔውን ማዘጋጀት አልተሳካም። እባክዎ እንደገና ይሞክሩ።',
+    'ai.cached': 'የቅርብ ጊዜ ውጤት ጥቅም ላይ ዋለ',
+    'ai.disclaimer': 'በAI የተዘጋጀ ምክር ነው — ከመተግበርዎ በፊት ያረጋግጡ።',
 
     // admin: dashboard
     'dash.overview': 'አጠቃላይ እይታ',

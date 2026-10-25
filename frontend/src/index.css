@@ -753,3 +753,30 @@ html[lang='am'] .label {
   color: #fff;
   background: #dc2626;
 }
+
+/* ═════════════════════════════════════════════
+   AI answer (rendered Markdown) — admin dashboard
+═════════════════════════════════════════════ */
+
+.ai-md {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #1f1a14;
+}
+.ai-md > * + * { margin-top: 0.75rem; }
+.ai-md h1, .ai-md h2, .ai-md h3, .ai-md h4 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  margin-top: 1.1rem;
+}
+.ai-md h1 { font-size: 1.25rem; }
+.ai-md h2 { font-size: 1.1rem; }
+.ai-md h3, .ai-md h4 { font-size: 1rem; }
+.ai-md ul, .ai-md ol { padding-left: 1.25rem; }
+.ai-md ul { list-style: disc; }
+.ai-md ol { list-style: decimal; }
+.ai-md li + li { margin-top: 0.3rem; }
+.ai-md strong { font-weight: 600; color: #8f4526; }
+.ai-md hr { border: 0; border-top: 1px solid rgba(31, 26, 20, 0.1); }
+.ai-md table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
+.ai-md th, .ai-md td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid rgba(31, 26, 20, 0.08); }

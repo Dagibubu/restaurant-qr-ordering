@@ -23,6 +23,8 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false # Google AI Studio key, powers Admin → Dashboard → AI analytics
 
   # Frontend (static site)
   - type: web

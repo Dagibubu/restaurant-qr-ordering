@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { DashboardSkeleton } from '../../components/Skeleton';
 import { useLang } from '../../i18n/LanguageContext';
+import AiAnalytics from '../../components/AiAnalytics';
 
 export default function Dashboard() {
   const { t, lang } = useLang();
@@ -103,6 +104,8 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      <AiAnalytics />
     </div>
   );
 }
