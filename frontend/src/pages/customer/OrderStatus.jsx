@@ -13,7 +13,7 @@ const STEPS = [
 
 export default function OrderStatus() {
   const { orderId, tableId } = useParams();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState('');
 
@@ -108,6 +108,12 @@ export default function OrderStatus() {
               <span>
                 <span className="text-ink-400 mr-2">{i.quantity}×</span>
                 {i.name}
+                {i.exclude?.length > 0 && (
+                  <span className="block text-xs text-red-600 mt-0.5">
+                    {t('menu.without')}{' '}
+                    {(lang === 'am' && i.excludeAm?.length ? i.excludeAm : i.exclude).join(', ')}
+                  </span>
+                )}
               </span>
               <span className="font-medium">
                 ${(Number(i.price) * i.quantity).toFixed(2)}

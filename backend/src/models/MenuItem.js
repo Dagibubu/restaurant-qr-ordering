@@ -11,6 +11,13 @@ const MenuItem = sequelize.define('MenuItem', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  // Comma-separated lists; Amharic names line up with the English ones by position
+  ingredients: {
+    type: DataTypes.TEXT,
+  },
+  ingredientsAm: {
+    type: DataTypes.TEXT,
+  },
   nameAm: {
     type: DataTypes.STRING,
   },

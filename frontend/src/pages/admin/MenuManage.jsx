@@ -8,6 +8,8 @@ const EMPTY_ITEM = {
   price: '',
   description: '',
   descriptionAm: '',
+  ingredients: '',
+  ingredientsAm: '',
   categoryId: '',
   image: '',
 };
@@ -18,6 +20,7 @@ export default function MenuManage() {
   const [cats, setCats] = useState([]);
   const [form, setForm] = useState(EMPTY_ITEM);
   const [catForm, setCatForm] = useState({ name: '', nameAm: '' });
+  const [editIng, setEditIng] = useState(null); // { id, ingredients, ingredientsAm }
   const [subFor, setSubFor] = useState(null); // main category id whose sub form is open
   const [subForm, setSubForm] = useState({ name: '', nameAm: '' });
   const [uploading, setUploading] = useState(false);
@@ -119,6 +122,17 @@ export default function MenuManage() {
     e.preventDefault();
     // stay open after a successful add so several subs can be entered in a row
     if (await createCategory(subForm, subFor)) setSubForm({ name: '', nameAm: '' });
+  };
+
+  const saveIngredients = async () => {
+    const { id, ingredients, ingredientsAm } = editIng;
+    try {
+      await api.put(`/menu/items/${id}`, { ingredients, ingredientsAm });
+      setEditIng(null);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    }
   };
 
   const delItem = async (id) => {
@@ -237,7 +251,8 @@ export default function MenuManage() {
           <h2 className="section-title mb-4">{t('manage.items', { n: items.length })}</h2>
           <div className="card divide-y divide-ink-900/6">
             {items.map((i) => (
-              <div key={i.id} className="p-4 flex items-center gap-4">
+              <div key={i.id} className="p-4">
+              <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0
                                 bg-gradient-to-br from-cream-100 to-terracotta-50
                                 grid place-items-center text-2xl">
@@ -259,11 +274,48 @@ export default function MenuManage() {
                   </p>
                 </div>
                 <button
+                  onClick={() =>
+                    setEditIng(
+                      editIng?.id === i.id
+                        ? null
+                        : {
+                            id: i.id,
+                            ingredients: i.ingredients || '',
+                            ingredientsAm: i.ingredientsAm || '',
+                          }
+                    )
+                  }
+                  className="text-xs text-terracotta-600 hover:underline transition"
+                >
+                  {t('manage.editIngredients')}
+                </button>
+                <button
                   onClick={() => delItem(i.id)}
                   className="text-xs text-ink-400 hover:text-red-600 transition"
                 >
                   {t('delete')}
                 </button>
+              </div>
+
+              {editIng?.id === i.id && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    className="input"
+                    placeholder={t('manage.ingredients')}
+                    value={editIng.ingredients}
+                    onChange={(e) => setEditIng({ ...editIng, ingredients: e.target.value })}
+                  />
+                  <input
+                    className="input"
+                    placeholder={t('manage.ingredientsAm')}
+                    value={editIng.ingredientsAm}
+                    onChange={(e) => setEditIng({ ...editIng, ingredientsAm: e.target.value })}
+                  />
+                  <button type="button" onClick={saveIngredients} className="btn-primary">
+                    {t('manage.save')}
+                  </button>
+                </div>
+              )}
               </div>
             ))}
             {!items.length && (
@@ -416,6 +468,23 @@ export default function MenuManage() {
                   setForm({ ...form, descriptionAm: e.target.value })
                 }
               />
+            </div>
+
+            <div>
+              <label className="label">{t('manage.ingredients')}</label>
+              <input
+                className="input"
+                placeholder="Tomato, Onion, Cheese"
+                value={form.ingredients}
+                onChange={(e) => setForm({ ...form, ingredients: e.target.value })}
+              />
+              <input
+                className="input mt-2"
+                placeholder={t('manage.ingredientsAm')}
+                value={form.ingredientsAm}
+                onChange={(e) => setForm({ ...form, ingredientsAm: e.target.value })}
+              />
+              <p className="text-[11px] text-ink-400 mt-1">{t('manage.ingredientsHint')}</p>
             </div>
 
             <button className="btn-primary w-full" disabled={uploading}>

@@ -70,7 +70,11 @@ export default function Reports() {
                   <td className="p-3">{o.table?.number || '—'}</td>
                   <td className="p-3">
                     {o.items
-                      .map((i) => `${i.quantity}× ${i.name}`)
+                      .map(
+                        (i) =>
+                          `${i.quantity}× ${i.name}` +
+                          (i.exclude?.length ? ` (${t('menu.without')} ${i.exclude.join(', ')})` : '')
+                      )
                       .join(', ')}
                   </td>
                   <td className="p-3 font-medium">

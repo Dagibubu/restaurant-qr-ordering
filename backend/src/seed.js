@@ -87,6 +87,17 @@ const ITEM_AM = {
   'Craft Beer': 'ቢራ',
 };
 
+// Demo ingredients (English | Amharic, same order) so customers can leave things out
+const ITEM_ING = {
+  'Bruschetta': ['Sourdough, Tomato, Basil, Garlic, Olive oil', 'ሊጥ ዳቦ, ቲማቲም, ባሲል, ነጭ ሽንኩርት, የወይራ ዘይት'],
+  'Caprese Salad': ['Mozzarella, Tomato, Pesto, Basil', 'ሞዛሬላ, ቲማቲም, ፔስቶ, ባሲል'],
+  'Margherita Pizza': ['Tomato sauce, Mozzarella, Basil', 'የቲማቲም ሶስ, ሞዛሬላ, ባሲል'],
+  'Spaghetti Carbonara': ['Guanciale, Egg yolk, Pecorino, Black pepper', 'ጓንቻሌ, የእንቁላል አስኳል, ፔኮሪኖ, ቁንዶ በርበሬ'],
+  'Risotto ai Funghi': ['Mushrooms, Parmesan, Onion, Butter', 'እንጉዳይ, ፓርሜዛን, ሽንኩርት, ቅቤ'],
+  'Chicken Parmigiana': ['Mozzarella, Tomato sauce, Basil', 'ሞዛሬላ, የቲማቲም ሶስ, ባሲል'],
+  'Grilled Salmon': ['Lemon butter, Vegetables', 'የሎሚ ቅቤ, አትክልት'],
+};
+
 const TABLES = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
 /*  ───────────────────────────────────────────
@@ -134,6 +145,8 @@ export async function populate() {
         await MenuItem.create({
           name: it.name,
           nameAm: ITEM_AM[it.name],
+          ingredients: ITEM_ING[it.name]?.[0],
+          ingredientsAm: ITEM_ING[it.name]?.[1],
           description: it.description,
           price: it.price,
           image: it.image,

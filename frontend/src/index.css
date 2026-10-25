@@ -712,3 +712,44 @@ html[lang='am'] .label {
   text-transform: none;
   letter-spacing: 0.02em;
 }
+
+/* ═════════════════════════════════════════════
+   INGREDIENT PICKER (shown before an order is added)
+═════════════════════════════════════════════ */
+
+.ing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--menu-text);
+  background: rgba(240, 169, 76, 0.1);
+  border: 1px solid rgba(240, 169, 76, 0.4);
+  transition: all 0.2s;
+}
+
+.ing-chip .ing-mark {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #0a0908;
+  background: var(--menu-amber);
+}
+
+.ing-chip.is-out {
+  color: var(--menu-text-dim);
+  text-decoration: line-through;
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.ing-chip.is-out .ing-mark {
+  color: #fff;
+  background: #dc2626;
+}

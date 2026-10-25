@@ -5,6 +5,7 @@ import api from '../../api/axios';
 import { MenuSkeleton } from '../../components/Skeleton';
 import { useLang } from '../../i18n/LanguageContext';
 import LanguageSwitch from '../../components/LanguageSwitch';
+import { parseIngredients } from '../../utils/ingredients';
 
 /* ──────────────────────────────
    Animation variants
@@ -41,7 +42,7 @@ function burstParticles(x, y, count = 14) {
 export default function CustomerMenu() {
   const { tableId } = useParams();
   const nav = useNavigate();
-  const { t, localized } = useLang();
+  const { t, lang, localized } = useLang();
   const [items, setItems] = useState([]);
   const [cats, setCats] = useState([]);
   const [activeCat, setActiveCat] = useState('all');
@@ -49,6 +50,7 @@ export default function CustomerMenu() {
   const [cart, setCart] = useState({});
   const [note, setNote] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
+  const [customize, setCustomize] = useState(null); // dish whose ingredient picker is open
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -140,25 +142,56 @@ export default function CustomerMenu() {
     setActiveSub('all');
   };
 
-  const add = (item, e) => {
+  // A cart line is a dish + the ingredients left out, so the same dish can
+  // appear twice (e.g. one plain, one without onions).
+  const add = (item, e, exclude = []) => {
     if (e) {
       const x = e.clientX || e.target.getBoundingClientRect().x;
       const y = e.clientY || e.target.getBoundingClientRect().y;
       burstParticles(x, y);
     }
+    const key = exclude.length
+      ? `${item.id}:${[...exclude].sort().join('|')}`
+      : String(item.id);
+    const excludeAm = parseIngredients(item)
+      .filter((g) => exclude.includes(g.en))
+      .map((g) => g.am);
+
     setCart((c) => ({
       ...c,
-      [item.id]: { ...item, quantity: (c[item.id]?.quantity || 0) + 1 },
+      [key]: {
+        ...item,
+        key,
+        exclude,
+        excludeAm,
+        quantity: (c[key]?.quantity || 0) + 1,
+      },
     }));
   };
 
-  const remove = (id) =>
+  const remove = (key) =>
     setCart((c) => {
-      const n = { ...c };
-      if (n[id].quantity > 1) n[id].quantity--;
-      else delete n[id];
-      return n;
+      const line = c[key];
+      if (!line) return c;
+      if (line.quantity > 1) return { ...c, [key]: { ...line, quantity: line.quantity - 1 } };
+      const next = { ...c };
+      delete next[key];
+      return next;
     });
+
+  const qtyOf = (itemId) =>
+    Object.values(cart)
+      .filter((l) => l.id === itemId)
+      .reduce((s, l) => s + l.quantity, 0);
+
+  const removeLastOf = (itemId) => {
+    const keys = Object.keys(cart).filter((k) => cart[k].id === itemId);
+    if (keys.length) remove(keys[keys.length - 1]);
+  };
+
+  // Dishes with ingredients ask what to leave out first; others add straight away
+  const order = (item, e) =>
+    parseIngredients(item).length ? setCustomize(item) : add(item, e);
 
   const totalQty = Object.values(cart).reduce((s, i) => s + i.quantity, 0);
   const total = Object.values(cart).reduce(
@@ -173,6 +206,8 @@ export default function CustomerMenu() {
       name: i.name,
       price: Number(i.price),
       quantity: i.quantity,
+      exclude: i.exclude,
+      excludeAm: i.excludeAm,
     }));
     if (!orderItems.length) return;
     setSubmitting(true);
@@ -313,9 +348,9 @@ export default function CustomerMenu() {
               item={item}
               label={label}
               copy={copy}
-              quantity={cart[item.id]?.quantity || 0}
-              onAdd={(e) => add(item, e)}
-              onRemove={() => remove(item.id)}
+              quantity={qtyOf(item.id)}
+              onAdd={(e) => order(item, e)}
+              onRemove={() => removeLastOf(item.id)}
             />
           )}
         />
@@ -462,7 +497,7 @@ export default function CustomerMenu() {
                 <AnimatePresence>
                   {Object.values(cart).map((i) => (
                     <motion.div
-                      key={i.id}
+                      key={i.key}
                       layout
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -487,13 +522,19 @@ export default function CustomerMenu() {
                         >
                           ${Number(i.price).toFixed(2)} {t('menu.each')}
                         </p>
+                        {i.exclude?.length > 0 && (
+                          <p className="text-xs mt-0.5" style={{ color: '#fca5a5' }}>
+                            {t('menu.without')}{' '}
+                            {(lang === 'am' ? i.excludeAm : i.exclude).join(', ')}
+                          </p>
+                        )}
                       </div>
                       <div
                         className="flex items-center gap-2 rounded-full p-0.5"
                         style={{ background: 'rgba(255, 200, 130, 0.06)' }}
                       >
                         <button
-                          onClick={() => remove(i.id)}
+                          onClick={() => remove(i.key)}
                           className="w-7 h-7 grid place-items-center rounded-full text-sm"
                           style={{
                             background: 'rgba(255, 255, 255, 0.05)',
@@ -506,7 +547,7 @@ export default function CustomerMenu() {
                           {i.quantity}
                         </span>
                         <button
-                          onClick={(e) => add(i, e)}
+                          onClick={(e) => add(i, e, i.exclude)}
                           className="w-7 h-7 grid place-items-center rounded-full text-sm font-bold"
                           style={{
                             background:
@@ -575,7 +616,115 @@ export default function CustomerMenu() {
           </>
         )}
       </AnimatePresence>
+
+      {/* ─── Ingredient picker ─── */}
+      <AnimatePresence>
+        {customize && (
+          <IngredientSheet
+            key={customize.id}
+            item={customize}
+            onClose={() => setCustomize(null)}
+            onConfirm={(exclude, e) => {
+              add(customize, e, exclude);
+              setCustomize(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/* ──────────────────────────────
+   Ingredient picker — tap what to leave out, then add to the order
+────────────────────────────── */
+function IngredientSheet({ item, onClose, onConfirm }) {
+  const { t, lang, localized } = useLang();
+  const ingredients = parseIngredients(item);
+  const [out, setOut] = useState(() => new Set());
+
+  const toggle = (en) =>
+    setOut((prev) => {
+      const next = new Set(prev);
+      if (next.has(en)) next.delete(en);
+      else next.add(en);
+      return next;
+    });
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60]"
+        style={{ background: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(6px)' }}
+        onClick={onClose}
+      />
+      <motion.div
+        role="dialog"
+        aria-label={t('menu.customize')}
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+        className="glass-drawer fixed bottom-0 left-0 right-0 z-[70] rounded-t-3xl p-5 max-w-lg mx-auto"
+      >
+        <div
+          className="w-12 h-1 rounded-full mx-auto mb-5"
+          style={{ background: 'rgba(255, 200, 130, 0.25)' }}
+        />
+
+        <p className="menu-section-eyebrow mb-1">{t('menu.customize')}</p>
+        <h2 className="font-display text-2xl mb-1" style={{ color: 'var(--menu-text)' }}>
+          {localized(item, 'name')}
+        </h2>
+        <p className="text-xs mb-4" style={{ color: 'var(--menu-text-dim)' }}>
+          {t('menu.customizeHint')}
+        </p>
+
+        <div className="flex flex-wrap gap-2 mb-5 max-h-56 overflow-auto">
+          {ingredients.map((g) => {
+            const isOut = out.has(g.en);
+            return (
+              <button
+                key={g.en}
+                type="button"
+                aria-pressed={isOut}
+                onClick={() => toggle(g.en)}
+                className={`ing-chip ${isOut ? 'is-out' : ''}`}
+              >
+                <span className="ing-mark">{isOut ? '✕' : '✓'}</span>
+                {lang === 'am' ? g.am : g.en}
+              </button>
+            );
+          })}
+        </div>
+
+        {out.size > 0 && (
+          <p className="text-xs mb-3" style={{ color: '#fca5a5' }}>
+            {t('menu.leftOut')}:{' '}
+            {ingredients
+              .filter((g) => out.has(g.en))
+              .map((g) => (lang === 'am' ? g.am : g.en))
+              .join(', ')}
+          </p>
+        )}
+
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={(e) => onConfirm([...out], e)}
+          className="w-full py-4 rounded-xl font-semibold text-sm"
+          style={{
+            background: 'linear-gradient(135deg, var(--menu-amber-bright), var(--menu-amber))',
+            color: '#0a0908',
+            boxShadow: '0 20px 40px -12px rgba(240, 169, 76, 0.5)',
+          }}
+        >
+          {t('menu.addToOrder')} · ${Number(item.price).toFixed(2)}
+        </motion.button>
+      </motion.div>
+    </>
   );
 }
 
